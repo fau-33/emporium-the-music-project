@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.routes.api import router as api_router
-from backend.exceptions import register_exception_handlers
+
+from routes.api import router as api_router
+from exceptions import register_exception_handlers
 
 app = FastAPI(
     title="Empório da Música API",

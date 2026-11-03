@@ -1,11 +1,11 @@
 import os
+import pandas as pd
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-import pandas as pd
 
 from services.ai_engine import generate_chat_response
 
-router = APIRouter(prefix="/api", tags=["api"])
+router = APIRouter()
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -66,7 +66,7 @@ def get_products():
     Retrieve all musical instruments from the products catalog.
     """
     df = load_dataset(DATASET_FILES["products"])
-    return df.to_dict(orient="records")
+    return {"products": df.to_dict(orient="records")}
 
 
 @router.get("/orders")
@@ -75,7 +75,7 @@ def get_orders():
     Retrieve all store orders from the orders dataset.
     """
     df = load_dataset(DATASET_FILES["orders"])
-    return df.to_dict(orient="records")
+    return {"orders": df.to_dict(orient="records")}
 
 
 @router.get("/promotions")
@@ -83,8 +83,16 @@ def get_promotions():
     """
     Retrieve all promotional campaigns from the promotions dataset.
     """
+    path = os.path.join(DATA_DIR, "promotions.csv")
+    if not os.path.exists(path):
+        return {
+            "promotions": [
+                {"title": "Desconto PIX", "discount": "5%", "description": "Desconto automático em pagamentos via PIX."},
+                {"title": "Frete Grátis", "condition": "Pedidos acima de R$ 500,00", "region": "Grande Campo Grande"}
+            ]
+        }
     df = load_dataset(DATASET_FILES["promotions"])
-    return df.to_dict(orient="records")
+    return {"promotions": df.to_dict(orient="records")}
 
 
 @router.post("/chat", response_model=ChatResponse)

@@ -10,6 +10,14 @@ app = FastAPI(
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
+DATASET_FILES = {
+    "products": "products.csv",
+    "orders": "orders.csv",
+    "customers": "customers.csv",
+    "categories": "categories.csv",
+    "promotions": "promotions.csv",
+    "order_items": "order_items.csv",
+}
 
 
 def load_dataset(filename: str):
@@ -28,5 +36,5 @@ def health_check():
 
 @app.get("/api/products")
 def get_products():
-    df = load_dataset("desafio_tecnico_ai_eng - products.csv")
+    df = load_dataset(DATASET_FILES["products"])
     return df.to_dict(orient="records")

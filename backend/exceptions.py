@@ -1,11 +1,12 @@
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
+
 def register_exception_handlers(app):
     """
     Register custom global exception handlers for clean and standardized JSON responses.
     """
-    
+
     @app.exception_handler(404)
     async def custom_404_handler(request: Request, __):
         return JSONResponse(
@@ -14,8 +15,8 @@ def register_exception_handlers(app):
                 "status": 404,
                 "error": "Not Found",
                 "message": f"A rota ou recurso '{request.url.path}' não foi encontrado na API da Empório da Música.",
-                "path": request.url.path
-            }
+                "path": request.url.path,
+            },
         )
 
     @app.exception_handler(Exception)
@@ -26,6 +27,5 @@ def register_exception_handlers(app):
                 "status": 500,
                 "error": "Internal Server Error",
                 "message": "Ocorreu um erro interno no servidor ao processar sua requisição.",
-                "detail": str(exc)
-            }
+            },
         )

@@ -401,6 +401,23 @@ def get_order_status_details(user_message: str) -> str:
     return summary
 
 
+def build_context_from_user_message(user_message: str) -> str:
+    """Build a safe, minimal context payload from local CSV data for the model."""
+    context_parts = []
+
+    if looks_like_order_query(user_message):
+        order_context = get_order_status_details(user_message)
+        if order_context:
+            context_parts.append(order_context)
+
+    if looks_like_product_query(user_message):
+        product_context = search_products_in_catalog(user_message)
+        if product_context:
+            context_parts.append(product_context)
+
+    return "\n\n".join(context_parts)
+
+
 def generate_chat_response(user_message: str) -> str:
     """
     Generate an intelligent response using Google Gemini API combined with catalog lookup.
@@ -412,10 +429,7 @@ def generate_chat_response(user_message: str) -> str:
         )
 
     policy_data = read_store_policy_text()
-
-    context_data = ""
-    if looks_like_product_query(user_message):
-        context_data = search_products_in_catalog(user_message)
+    context_data = build_context_from_user_message(user_message)
 
     full_prompt = f"""
     {SYSTEM_PROMPT}
@@ -426,8 +440,8 @@ def generate_chat_response(user_message: str) -> str:
     [Store Policy Document]:
     {policy_data}
 
-    [Catalog Data Retrieved from Local CSV Files]:
-    {context_data if context_data else "No product catalog query was detected for this message. Only use general store-policy guidance."}
+    [Local CSV Context]:
+    {context_data if context_data else "No catalog or order data was detected for this message. Only use general store-policy guidance."}
 
     Customer Message: {user_message}
     """

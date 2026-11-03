@@ -1,29 +1,32 @@
+import os
 from fastapi import FastAPI, HTTPException
 import pandas as pd
-import os
 
 app = FastAPI(
     title="Empório da Música API",
-    description="Backend services integrating CSV datasets and RAG policies for Empório da Música.",
-    version="1.0.0"
+    description="Backend API for Empório da Música datasets and support services.",
+    version="1.0.0",
 )
 
-# Paths to data files
-DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data")
 
-def load_csv(filename: str):
+
+def load_dataset(filename: str):
     path = os.path.join(DATA_DIR, filename)
     if not os.path.exists(path):
-        raise HTTPException(status_code=404, detail=f"Dataset {filename} not found.")
+        raise HTTPException(
+            status_code=404, detail=f"File {filename} not found."
+        )
     return pd.read_csv(path)
 
-@app.get("/api/health", summary="Check backend health status")
-def health_check():
-    return {"status": "online", "store": "Empório da Música"}
 
-@app.get("/api/products", summary="Retrieve all active musical instruments")
+@app.get("/api/health")
+def health_check():
+    return {"status": "online", "system": "Empório da Música API"}
+
+
+@app.get("/api/products")
 def get_products():
-    """Fetches products directly from products.csv to sync with frontend."""
-    df = load_csv("desafio_tecnico_ai_eng - products.csv")
-    # Convert dataframe to dictionary records to return as JSON
+    df = load_dataset("desafio_tecnico_ai_eng - products.csv")
     return df.to_dict(orient="records")

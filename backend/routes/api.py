@@ -1,6 +1,9 @@
 import os
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 import pandas as pd
+
+from services.ai_engine import generate_chat_response
 
 router = APIRouter(prefix="/api", tags=["api"])
 
@@ -16,6 +19,20 @@ DATASET_FILES = {
     "promotions": "promotions.csv",
     "order_items": "order_items.csv",
 }
+
+
+class ChatRequest(BaseModel):
+    """
+    Schema for customer chat incoming request payload.
+    """
+    message: str
+
+
+class ChatResponse(BaseModel):
+    """
+    Schema for customer chat outgoing response payload.
+    """
+    reply: str
 
 
 def load_dataset(filename: str) -> pd.DataFrame:
@@ -68,3 +85,17 @@ def get_promotions():
     """
     df = load_dataset(DATASET_FILES["promotions"])
     return df.to_dict(orient="records")
+
+
+@router.post("/chat", response_model=ChatResponse)
+def chat_endpoint(request: ChatRequest):
+    """
+    Process incoming customer messages through the AI agent and return a contextual response.
+    """
+    if not request.message or not request.message.strip():
+        raise HTTPException(
+            status_code=400, detail="Message content cannot be empty."
+        )
+        
+    reply_text = generate_chat_response(request.message.strip())
+    return ChatResponse(reply=reply_text)

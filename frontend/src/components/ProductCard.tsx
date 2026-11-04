@@ -1,4 +1,5 @@
-import { AlertCircle, CheckCircle2, Tag } from "lucide-react";
+import { AlertCircle, CheckCircle2, ImageOff, Tag } from "lucide-react";
+import { useState } from "react";
 import type { Product, Promotion } from "../types";
 
 interface ProductCardProps {
@@ -6,43 +7,6 @@ interface ProductCardProps {
   promotion?: Promotion;
   onSelect?: (product: Product) => void;
 }
-
-const acousticGuitarImage =
-  "https://images.unsplash.com/photo-1525201548942-d8732f6617a0?w=600&auto=format&fit=crop&q=80";
-
-const getProductImage = (product: Product): string => {
-  if (product.image_url) {
-    return product.image_url;
-  }
-
-  const searchText = `${product.name} ${product.description}`
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-
-  if (/\b(ukulele|ukelele)\b/.test(searchText)) {
-    return "https://images.unsplash.com/photo-1510915361894-db8b60106cb1?w=600&auto=format&fit=crop&q=80";
-  }
-  if (/\b(baixo|bass)\b/.test(searchText)) {
-    return "https://images.unsplash.com/photo-1564186763535-ebb21ef5277f?w=600&auto=format&fit=crop&q=80";
-  }
-  if (/\b(bateria|drum|pearl|tama)\b/.test(searchText)) {
-    return "https://images.unsplash.com/photo-1519892300165-cb5542fb47c7?w=600&auto=format&fit=crop&q=80";
-  }
-  if (/\b(teclado|sintetizador|korg|nord|roland|piano)\b/.test(searchText)) {
-    return "https://images.unsplash.com/photo-1520523839897-bd0b52f945a0?w=600&auto=format&fit=crop&q=80";
-  }
-
-  if (
-    /\b(violao|guitarra|acoustic|folk|dreadnought|nylon|7 cordas)\b/.test(
-      searchText,
-    )
-  ) {
-    return acousticGuitarImage;
-  }
-
-  return "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80";
-};
 
 const formatPrice = (price: number): string =>
   new Intl.NumberFormat("pt-BR", {
@@ -56,6 +20,9 @@ export const ProductCard = ({
   onSelect,
 }: ProductCardProps) => {
   const inStock = product.status === "active" && product.stock_quantity > 0;
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
+  const imageUrl = product.image_url?.trim() || null;
+  const showImage = imageUrl !== null && failedImageUrl !== imageUrl;
   const discountedPrice = promotion
     ? Math.round(
         product.price_brl * (1 - promotion.discount_percent / 100) * 100,
@@ -65,12 +32,26 @@ export const ProductCard = ({
   return (
     <article className="group flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-lg transition-all duration-300 hover:border-amber-500/50">
       <div className="relative h-48 overflow-hidden bg-slate-950">
-        <img
-          src={getProductImage(product)}
-          alt={product.name}
-          loading="lazy"
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-        />
+        {showImage ? (
+          <img
+            src={imageUrl}
+            alt={product.name}
+            loading="lazy"
+            onError={() => setFailedImageUrl(imageUrl)}
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div
+            className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-900 to-slate-950 text-slate-500"
+            role="img"
+            aria-label={`No image available for ${product.name}`}
+          >
+            <ImageOff className="h-8 w-8 text-amber-500/60" aria-hidden="true" />
+            <span className="text-[10px] font-medium uppercase tracking-[0.16em]">
+              Image unavailable
+            </span>
+          </div>
+        )}
         <div className="absolute right-3 top-3">
           {product.status === "coming_soon" ? (
             <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-300 backdrop-blur-md">

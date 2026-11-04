@@ -62,7 +62,8 @@ STOP_WORDS = {
     "são", "me", "minha", "quer", "quero", "loja", "vocês", "nossa", "nos", "ainda",
     "por", "com", "para", "de", "do", "da", "das", "dos", "mais", "menos", "ate",
     "até", "r", "rs", "reais", "real", "o", "a", "os", "as", "um", "uma", "uns",
-    "umas", "em", "no", "na", "nos", "nas", "e"
+    "umas", "em", "no", "na", "nos", "nas", "e", "posso", "comprar", "compra",
+    "compras"
 }
 
 
@@ -83,6 +84,7 @@ Key Directives:
    - Delivery for other cities: via Correios or Jadlog with tracking and insurance.
 4. Language: Respond to the customer in Portuguese, maintaining a helpful and professional tone.
 5. If a store policy is not explicitly available in the policy document, say that you do not have that information and do not invent it.
+6. For product questions, use the [Local CSV Context] as the source of truth for product existence, price, stock, and status. Clearly distinguish available products, products with no stock, and discontinued products; never contradict or infer beyond those CSV facts.
 """
 
 
@@ -240,15 +242,21 @@ def looks_like_product_query(text: str) -> bool:
 def search_products_in_catalog(user_message: str) -> str:
     """
     Search the products catalog using a flexible set of heuristics: product name, brand, category, price range and availability.
-    Returns a compact, readable summary for the prompt.
+    Returns matching product facts, including availability status, for the prompt.
     """
-    df = load_products_df()
-    filtered = df[df["status"] == "active"].copy()
-    filtered = filtered[filtered["stock_quantity"] > 0].copy()
-
+    products = load_products_df()
+    available_products = products[
+        (products["status"] == "active") & (products["stock_quantity"] > 0)
+    ].copy()
     text = normalize_text(user_message)
 
+    product_id_match = re.search(
+        r"\b(?:produto|instrumento|item)\s*#?\s*(\d+)\b", text
+    )
+    product_id = int(product_id_match.group(1)) if product_id_match else None
+
     category_name = infer_category(text)
+    filtered = available_products
     if category_name:
         category_lookup = {
             "guitarras": "Guitarras",
@@ -267,59 +275,55 @@ def search_products_in_catalog(user_message: str) -> str:
             category_id = category_match.iloc[0]["category_id"]
             filtered = filtered[filtered["category_id"] == category_id]
 
+    if product_id is not None:
+        filtered = products[products["product_id"] == product_id].copy()
+    elif category_name is None:
+        product_tokens = [
+            token for token in re.findall(r"[a-z0-9]+", text)
+            if token and token not in STOP_WORDS and not re.fullmatch(r"\d+(?:[.,]\d+)?", token)
+        ]
+        if product_tokens:
+            normalized_names = products["name"].map(normalize_text)
+            for token in product_tokens:
+                normalized_names = normalized_names[normalized_names.str.contains(
+                    re.escape(token), regex=True, na=False
+                )]
+            filtered = products.loc[normalized_names.index].copy()
+
     min_price, max_price = extract_price_range(text)
     if min_price is not None:
         filtered = filtered[filtered["price_brl"] >= min_price]
     if max_price is not None:
         filtered = filtered[filtered["price_brl"] <= max_price]
 
-    if category_name is None:
-        product_tokens = [
-            token for token in re.findall(r"[a-z0-9]+", text)
-            if token and token not in STOP_WORDS and not re.fullmatch(r"\d+(?:[.,]\d+)?", token)
-        ]
-        if product_tokens:
-            normalized_names = filtered["name"].map(normalize_text)
-            for token in product_tokens:
-                normalized_names = normalized_names[normalized_names.str.contains(
-                    re.escape(token), regex=True, na=False
-                )]
-            filtered = filtered.loc[normalized_names.index]
-
     if filtered.empty:
-        return "Nenhum produto disponível com esses critérios foi encontrado no catálogo atual. Verifique o nome do produto, a categoria, o preço máximo ou a disponibilidade em estoque."
+        return "Nenhum produto correspondente foi encontrado no catálogo com esses critérios. Verifique o nome, o número do produto, a categoria ou o limite de preço."
 
     filtered = filtered.sort_values("price_brl").head(10)
     rows = []
     for _, product in filtered.iterrows():
+        if product["status"] == "discontinued":
+            availability = "Status: descontinuado"
+        elif product["status"] != "active":
+            availability = f"Status: {product['status']}"
+        elif product["stock_quantity"] <= 0:
+            availability = "Status: sem estoque no momento"
+        else:
+            availability = "Status: disponível para compra"
         rows.append(
-            f"{product['name']} | Preço: R$ {float(product['price_brl']):.2f} | Estoque: {int(product['stock_quantity'])} | Descrição: {product['description']}"
+            f"Produto encontrado: {product['name']} | "
+            f"Preço: R$ {float(product['price_brl']):.2f} | "
+            f"Estoque: {int(product['stock_quantity'])} | "
+            f"{availability} | Descrição: {product['description']}"
         )
     return "\n".join(rows)
 
 
 def query_product_catalog(product_name: str) -> str:
     """
-    Flexible product lookup on the real catalog.
+    Look up a product using the same catalog matching and availability rules as chat context.
     """
-    df = load_products_df()
-    filtered = df[(df["status"] == "active") & (df["stock_quantity"] > 0)].copy()
-
-    search_term = normalize_text(product_name)
-    if not search_term:
-        return "Produto não informado."
-
-    match = filtered[filtered["name"].str.contains(search_term, case=False, na=False)]
-    if match.empty:
-        return f"Produto '{product_name}' não foi encontrado no catálogo ativo e disponível."
-
-    prod = match.iloc[0]
-    return (
-        f"Produto encontrado: {prod['name']} | "
-        f"Preço: R$ {float(prod['price_brl']):.2f} | "
-        f"Estoque: {int(prod['stock_quantity'])} unidades | "
-        f"Descrição: {prod['description']}"
-    )
+    return search_products_in_catalog(product_name)
 
 
 def extract_order_id_from_text(text: str):

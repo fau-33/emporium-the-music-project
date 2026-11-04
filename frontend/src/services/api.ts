@@ -50,7 +50,7 @@ export async function getPromotions(): Promise<Promotion[]> {
     return Array.isArray(data) ? data : data.promotions || [];
   } catch (error) {
     console.error('Error fetching promotions:', error);
-    return [];
+    throw error;
   }
 }
 

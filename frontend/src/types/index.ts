@@ -41,7 +41,7 @@ export interface Promotion {
   product_id: number;
   discount_percent: number;
   description: string;
-  is_active: number;
+  is_active: number | boolean;
 }
 
 // Interfaces for the AI Agent Chat messages and payloads

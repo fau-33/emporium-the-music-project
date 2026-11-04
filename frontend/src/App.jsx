@@ -1,4 +1,5 @@
 import { Header } from "./components/Header";
+import { PromotionsSection } from "./components/PromotionsSection";
 import { ProductGrid } from "./components/ProductGrid";
 import { Sparkles } from "lucide-react";
 
@@ -8,6 +9,7 @@ export function App() {
       <Header />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <PromotionsSection />
         <section id="catalog" aria-labelledby="catalog-title">
           <div className="mb-8 text-center sm:text-left">
             <div className="mb-3 inline-flex items-center space-x-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-400">

@@ -1,6 +1,7 @@
 import { Header } from "./components/Header";
 import { PromotionsSection } from "./components/PromotionsSection";
 import { ProductGrid } from "./components/ProductGrid";
+import { Footer } from "./components/Footer";
 import { Sparkles } from "lucide-react";
 
 export function App() {
@@ -29,6 +30,7 @@ export function App() {
           <ProductGrid />
         </section>
       </main>
+      <Footer />
     </div>
   );
 }

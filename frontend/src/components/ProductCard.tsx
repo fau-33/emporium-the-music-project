@@ -50,7 +50,7 @@ const formatPrice = (price: number): string =>
   }).format(price);
 
 export const ProductCard = ({ product, onSelect }: ProductCardProps) => {
-  const inStock = product.stock_quantity > 0;
+  const inStock = product.status === "active" && product.stock_quantity > 0;
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-lg transition-all duration-300 hover:border-amber-500/50">
@@ -62,7 +62,15 @@ export const ProductCard = ({ product, onSelect }: ProductCardProps) => {
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
         <div className="absolute right-3 top-3">
-          {inStock ? (
+          {product.status === "coming_soon" ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-300 backdrop-blur-md">
+              Coming Soon
+            </span>
+          ) : product.status === "discontinued" ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-slate-500/30 bg-slate-900/80 px-2.5 py-1 text-xs font-medium text-slate-300 backdrop-blur-md">
+              Discontinued
+            </span>
+          ) : inStock ? (
             <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-400 backdrop-blur-md">
               <CheckCircle2 className="h-3.5 w-3.5" />
               In Stock ({product.stock_quantity})

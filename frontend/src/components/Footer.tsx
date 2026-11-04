@@ -11,7 +11,10 @@ import {
 
 export const Footer: React.FC = () => {
   return (
-    <footer className="border-t border-slate-800 bg-slate-900 text-sm text-slate-400">
+    <footer
+      id="footer"
+      className="border-t border-slate-800 bg-slate-900 text-sm text-slate-400"
+    >
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
           {/* Brand Info */}
@@ -160,7 +163,7 @@ export const Footer: React.FC = () => {
             direitos reservados.
           </p>
           <p className="text-[11px]">
-            Desenvolvido com FastAPI, React &amp; Google Gemini
+            Desenvolvido por Flávio Félix © 2026
           </p>
         </div>
       </div>

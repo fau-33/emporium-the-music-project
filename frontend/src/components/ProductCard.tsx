@@ -8,7 +8,7 @@ interface ProductCardProps {
   onSelect?: (product: Product) => void;
 }
 
-const productImageById: Record<number, string> = {
+export const productImageById: Record<number, string> = {
   81: "/images/products/yamaha-c40-natural.jpg",
   82: "/images/products/yamaha-c70-natural.jpg",
   83: "/images/products/tagima-memphis-ac-39-natural.jpg",

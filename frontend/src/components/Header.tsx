@@ -4,6 +4,7 @@ import {
   LoaderCircle,
   MessageCircle,
   Music,
+  Plus,
   Send,
   X,
 } from "lucide-react";
@@ -17,6 +18,7 @@ export const Header: React.FC = () => {
   const [isSending, setIsSending] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const messageListRef = useRef<HTMLDivElement>(null);
+  const conversationIdRef = useRef(0);
 
   useEffect(() => {
     // Check backend connection status on component mount
@@ -44,6 +46,7 @@ export const Header: React.FC = () => {
     event.preventDefault();
     const text = messageInput.trim();
     if (!text || isSending) return;
+    const conversationId = conversationIdRef.current;
 
     const userMessage: ChatMessage = {
       id: `${Date.now()}-user`,
@@ -59,6 +62,7 @@ export const Header: React.FC = () => {
 
     try {
       const reply = await sendChatMessage(text);
+      if (conversationId !== conversationIdRef.current) return;
       const agentMessage: ChatMessage = {
         id: `${Date.now()}-agent`,
         sender: "agent",
@@ -68,10 +72,22 @@ export const Header: React.FC = () => {
       setMessages((currentMessages) => [...currentMessages, agentMessage]);
     } catch (error: unknown) {
       console.error("Failed to send chat message:", error);
-      setChatError("We couldn't send your message. Please try again.");
+      if (conversationId === conversationIdRef.current) {
+        setChatError("We couldn't send your message. Please try again.");
+      }
     } finally {
-      setIsSending(false);
+      if (conversationId === conversationIdRef.current) {
+        setIsSending(false);
+      }
     }
+  };
+
+  const handleNewConversation = () => {
+    conversationIdRef.current += 1;
+    setMessages([]);
+    setMessageInput("");
+    setChatError(null);
+    setIsSending(false);
   };
 
   return (
@@ -116,19 +132,7 @@ export const Header: React.FC = () => {
                 Instruments
               </a>
               <a
-                href="#promotions"
-                className="whitespace-nowrap transition-colors duration-200 hover:text-[#a8752e] focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#c99545]"
-              >
-                Promotions
-              </a>
-              <a
-                href="#policies"
-                className="whitespace-nowrap transition-colors duration-200 hover:text-[#a8752e] focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#c99545]"
-              >
-                Store Policies
-              </a>
-              <a
-                href="#contact"
+                href="#footer"
                 className="whitespace-nowrap transition-colors duration-200 hover:text-[#a8752e] focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#c99545]"
               >
                 Contact
@@ -166,19 +170,7 @@ export const Header: React.FC = () => {
               Instruments
             </a>
             <a
-              href="#promotions"
-              className="shrink-0 rounded-sm transition-colors duration-200 hover:text-[#a8752e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c99545]"
-            >
-              Promotions
-            </a>
-            <a
-              href="#policies"
-              className="shrink-0 rounded-sm transition-colors duration-200 hover:text-[#a8752e] focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c99545]"
-            >
-              Store Policies
-            </a>
-            <a
-              href="#contact"
+              href="#footer"
               className="shrink-0 rounded-sm transition-colors duration-200 hover:text-[#a8752e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c99545]"
             >
               Contact
@@ -204,17 +196,28 @@ export const Header: React.FC = () => {
                   Music Store Assistant
                 </h2>
                 <p className="mt-0.5 text-xs text-[#756f64]">
-                  How can we help you today?
+                  Seu assistente virtual do Empório da Música
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsChatOpen(false)}
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#756f64] transition-colors hover:bg-[#e9e2d6] hover:text-[#181815] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c99545]"
-                aria-label="Close assistant"
-              >
-                <X className="h-4 w-4" aria-hidden="true" />
-              </button>
+              <div className="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  onClick={handleNewConversation}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold text-[#756f64] transition-colors hover:bg-[#e9e2d6] hover:text-[#181815] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c99545]"
+                  aria-label="New conversation"
+                >
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  <span>New conversation</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsChatOpen(false)}
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#756f64] transition-colors hover:bg-[#e9e2d6] hover:text-[#181815] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c99545]"
+                  aria-label="Close assistant"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
             </div>
 
             <div

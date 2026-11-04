@@ -4,8 +4,14 @@ import { Footer } from "./components/Footer";
 import { Hero } from "./components/Hero";
 import { Categories } from "./components/Categories";
 import { Sparkles } from "lucide-react";
+import { NotFoundPage } from "./components/NotFoundPage";
 
 export function App() {
+  const pathname = window.location.pathname;
+  if (pathname !== "/" && pathname !== "/index.html") {
+    return <NotFoundPage />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-amber-500 selection:text-slate-950 flex flex-col">
       <Header />

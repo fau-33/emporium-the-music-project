@@ -3,6 +3,7 @@ import { PromotionsSection } from "./components/PromotionsSection";
 import { ProductGrid } from "./components/ProductGrid";
 import { Footer } from "./components/Footer";
 import { Hero } from "./components/Hero";
+import { Categories } from "./components/Categories";
 import { Sparkles } from "lucide-react";
 
 export function App() {
@@ -12,6 +13,7 @@ export function App() {
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <Hero />
+        <Categories />
         <PromotionsSection />
         <section id="catalog" aria-labelledby="catalog-title">
           <div className="mb-8 text-center sm:text-left">

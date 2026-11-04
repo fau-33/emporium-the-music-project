@@ -1,8 +1,9 @@
 import { AlertCircle, CheckCircle2, Tag } from "lucide-react";
-import type { Product } from "../types";
+import type { Product, Promotion } from "../types";
 
 interface ProductCardProps {
   product: Product;
+  promotion?: Promotion;
   onSelect?: (product: Product) => void;
 }
 
@@ -49,8 +50,17 @@ const formatPrice = (price: number): string =>
     currency: "BRL",
   }).format(price);
 
-export const ProductCard = ({ product, onSelect }: ProductCardProps) => {
+export const ProductCard = ({
+  product,
+  promotion,
+  onSelect,
+}: ProductCardProps) => {
   const inStock = product.status === "active" && product.stock_quantity > 0;
+  const discountedPrice = promotion
+    ? Math.round(
+        product.price_brl * (1 - promotion.discount_percent / 100) * 100,
+      ) / 100
+    : null;
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-lg transition-all duration-300 hover:border-amber-500/50">
@@ -103,9 +113,23 @@ export const ProductCard = ({ product, onSelect }: ProductCardProps) => {
             <span className="block text-[10px] uppercase tracking-wider text-slate-500">
               Price
             </span>
-            <span className="text-lg font-extrabold text-white">
-              {formatPrice(product.price_brl)}
-            </span>
+            {promotion && discountedPrice !== null ? (
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <span className="text-sm text-slate-500 line-through">
+                  {formatPrice(product.price_brl)}
+                </span>
+                <span className="text-lg font-extrabold text-amber-300">
+                  {formatPrice(discountedPrice)}
+                </span>
+                <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
+                  -{promotion.discount_percent}%
+                </span>
+              </div>
+            ) : (
+              <span className="text-lg font-extrabold text-white">
+                {formatPrice(product.price_brl)}
+              </span>
+            )}
           </div>
           <button
             type="button"

@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { AlertCircle, Loader2, X } from "lucide-react";
-import { getProducts } from "../services/api";
-import type { Product } from "../types";
+import { getProducts, getPromotions } from "../services/api";
+import type { Product, Promotion } from "../types";
 import { ProductCard } from "./ProductCard";
 
 export const ProductGrid = () => {
   const [products, setProducts] = useState<Product[]>([]);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +24,27 @@ export const ProductGrid = () => {
         setError("Could not connect to the backend catalog.");
       })
       .finally(() => setLoading(false));
+
+    getPromotions()
+      .then((data) => {
+        setPromotions(
+          data.filter(
+            (promotion) =>
+              (promotion.is_active === 1 || promotion.is_active === true) &&
+              Number.isFinite(promotion.discount_percent) &&
+              promotion.discount_percent > 0 &&
+              promotion.discount_percent <= 100,
+          ),
+        );
+      })
+      .catch((err: unknown) => {
+        console.error("Failed to load promotions:", err);
+      });
   }, []);
+
+  const promotionsByProductId = new Map(
+    promotions.map((promotion) => [promotion.product_id, promotion]),
+  );
 
   if (loading) {
     return (
@@ -67,6 +88,7 @@ export const ProductGrid = () => {
           <ProductCard
             key={product.product_id}
             product={product}
+            promotion={promotionsByProductId.get(product.product_id)}
             onSelect={setSelectedProduct}
           />
         ))}

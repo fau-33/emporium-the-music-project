@@ -61,7 +61,8 @@ STOP_WORDS = {
     "há", "disponivel", "disponível", "estoque", "algum", "alguns", "são", "serao",
     "são", "me", "minha", "quer", "quero", "loja", "vocês", "nossa", "nos", "ainda",
     "por", "com", "para", "de", "do", "da", "das", "dos", "mais", "menos", "ate",
-    "até", "r", "rs", "reais", "real"
+    "até", "r", "rs", "reais", "real", "o", "a", "os", "as", "um", "uma", "uns",
+    "umas", "em", "no", "na", "nos", "nas", "e"
 }
 
 
@@ -205,11 +206,12 @@ def extract_price_range(text: str):
         min_price = parse_money(min_match.group(1))
 
     if max_price is None:
-        has_price_signal = any(marker in normalized for marker in ["r$", "rs", "ate ", "até ", "acima de", "mais de", "maximo", "máximo", "valor", "preco", "preço", "quanto custa"])
-        if has_price_signal:
-            explicit_price_match = re.search(r"(?:r\$\s*|rs\s*)?(\d+(?:[.,]\d{3})*(?:[.,]\d+)?)", normalized)
-            if explicit_price_match:
-                max_price = parse_money(explicit_price_match.group(1))
+        explicit_price_match = re.search(
+            r"(?:r\$\s*|rs\s*)(\d+(?:[.,]\d{3})*(?:[.,]\d+)?)",
+            normalized,
+        )
+        if explicit_price_match:
+            max_price = parse_money(explicit_price_match.group(1))
 
     return min_price, max_price
 
@@ -277,9 +279,12 @@ def search_products_in_catalog(user_message: str) -> str:
             if token and token not in STOP_WORDS and not re.fullmatch(r"\d+(?:[.,]\d+)?", token)
         ]
         if product_tokens:
-            product_query = " ".join(product_tokens)
-            if len(product_query) >= 3:
-                filtered = filtered[filtered["name"].str.contains(product_query, case=False, na=False)]
+            normalized_names = filtered["name"].map(normalize_text)
+            for token in product_tokens:
+                normalized_names = normalized_names[normalized_names.str.contains(
+                    re.escape(token), regex=True, na=False
+                )]
+            filtered = filtered.loc[normalized_names.index]
 
     if filtered.empty:
         return "Nenhum produto disponível com esses critérios foi encontrado no catálogo atual. Verifique o nome do produto, a categoria, o preço máximo ou a disponibilidade em estoque."

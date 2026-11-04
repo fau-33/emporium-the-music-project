@@ -33,7 +33,7 @@ export async function getProducts(): Promise<Product[]> {
     return Array.isArray(data) ? data : data.products || [];
   } catch (error) {
     console.error('Error fetching products:', error);
-    return [];
+    throw error;
   }
 }
 

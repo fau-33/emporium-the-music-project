@@ -7,6 +7,7 @@ export interface Product {
   description: string;
   stock_quantity: number;
   status: "active" | "discontinued" | "coming_soon";
+  image_url?: string | null;
   specs?: string;
   created_at?: string;
 }

@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 
@@ -7,6 +8,8 @@ from google import genai
 from pypdf import PdfReader
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -63,7 +66,10 @@ STOP_WORDS = {
     "por", "com", "para", "de", "do", "da", "das", "dos", "mais", "menos", "ate",
     "até", "r", "rs", "reais", "real", "o", "a", "os", "as", "um", "uma", "uns",
     "umas", "em", "no", "na", "nos", "nas", "e", "posso", "comprar", "compra",
-    "compras"
+    "compras", "esta", "estao", "disponiveis", "descontinuado", "descontinuada", "indisponivel",
+    "ativo", "ativa", "status", "categoria", "modelo", "marca", "instrumento",
+    "instrumentos", "encontrar", "encontro", "existe", "temos", "sobre", "me",
+    "fale", "fala", "disponibilidade"
 }
 
 
@@ -94,6 +100,24 @@ def load_products_df() -> pd.DataFrame:
     df["price_brl"] = pd.to_numeric(df["price_brl"], errors="coerce").fillna(0)
     df["stock_quantity"] = pd.to_numeric(df["stock_quantity"], errors="coerce").fillna(0)
     df["status"] = df["status"].fillna("").astype(str).str.lower()
+    return df
+
+
+def load_promotions_df() -> pd.DataFrame:
+    path = os.path.join(DATA_DIR, "promotions.csv")
+    df = pd.read_csv(path)
+    df["product_id"] = pd.to_numeric(df["product_id"], errors="coerce").fillna(0).astype(int)
+    df["discount_percent"] = pd.to_numeric(
+        df["discount_percent"], errors="coerce"
+    )
+    df["is_active"] = (
+        df["is_active"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        .str.lower()
+        .isin({"1", "true", "yes", "sim"})
+    )
     return df
 
 
@@ -155,6 +179,16 @@ def normalize_text(value: str) -> str:
     value = value.replace("\n", " ")
     value = re.sub(r"\s+", " ", value)
     return value
+
+
+def product_search_tokens(value: str) -> list[str]:
+    normalized = normalize_text(value)
+    normalized = re.sub(r"\b([a-z])-(?=\d)", r"\1", normalized)
+    return [
+        token
+        for token in re.findall(r"[a-z0-9]+", normalized)
+        if token not in STOP_WORDS and not token.isdigit()
+    ]
 
 
 def parse_money(value: str) -> float:
@@ -236,13 +270,25 @@ def looks_like_product_query(text: str) -> bool:
     ]:
         if keyword in normalized:
             return True
-    return infer_category(normalized) is not None
+    if infer_category(normalized) is not None or re.search(r"#\s*\d+\b", normalized):
+        return True
+
+    query_tokens = set(product_search_tokens(normalized))
+    if not query_tokens:
+        return False
+
+    catalog_tokens = {
+        token
+        for name in load_products_df()["name"]
+        for token in product_search_tokens(str(name))
+    }
+    return bool(query_tokens & catalog_tokens)
 
 
 def search_products_in_catalog(user_message: str) -> str:
     """
-    Search the products catalog using a flexible set of heuristics: product name, brand, category, price range and availability.
-    Returns matching product facts, including availability status, for the prompt.
+    Search products by catalog ID, name/model, category, price range, or availability.
+    Active promotions are joined to products only by product_id.
     """
     products = load_products_df()
     available_products = products[
@@ -251,12 +297,12 @@ def search_products_in_catalog(user_message: str) -> str:
     text = normalize_text(user_message)
 
     product_id_match = re.search(
-        r"\b(?:produto|instrumento|item)\s*#?\s*(\d+)\b", text
+        r"(?:\b(?:produto|instrumento|item)\s*#?\s*|#\s*)(\d+)\b", text
     )
     product_id = int(product_id_match.group(1)) if product_id_match else None
 
     category_name = infer_category(text)
-    filtered = available_products
+    filtered = products
     if category_name:
         category_lookup = {
             "guitarras": "Guitarras",
@@ -277,18 +323,31 @@ def search_products_in_catalog(user_message: str) -> str:
 
     if product_id is not None:
         filtered = products[products["product_id"] == product_id].copy()
-    elif category_name is None:
-        product_tokens = [
-            token for token in re.findall(r"[a-z0-9]+", text)
-            if token and token not in STOP_WORDS and not re.fullmatch(r"\d+(?:[.,]\d+)?", token)
-        ]
+    else:
+        product_tokens = product_search_tokens(text)
+        if category_name:
+            category_tokens = {
+                token
+                for alias in CATEGORY_ALIASES[category_name]
+                for token in product_search_tokens(alias)
+            }
+            product_tokens = [
+                token for token in product_tokens if token not in category_tokens
+            ]
+
         if product_tokens:
-            normalized_names = products["name"].map(normalize_text)
+            normalized_names = filtered["name"].map(normalize_text)
             for token in product_tokens:
-                normalized_names = normalized_names[normalized_names.str.contains(
-                    re.escape(token), regex=True, na=False
-                )]
-            filtered = products.loc[normalized_names.index].copy()
+                normalized_names = normalized_names[
+                    normalized_names.str.contains(re.escape(token), regex=True, na=False)
+                ]
+            filtered = filtered.loc[normalized_names.index].copy()
+        elif category_name:
+            filtered = filtered[
+                (filtered["status"] == "active") & (filtered["stock_quantity"] > 0)
+            ].copy()
+        else:
+            filtered = filtered.iloc[0:0].copy()
 
     min_price, max_price = extract_price_range(text)
     if min_price is not None:
@@ -300,6 +359,17 @@ def search_products_in_catalog(user_message: str) -> str:
         return "Nenhum produto correspondente foi encontrado no catálogo com esses critérios. Verifique o nome, o número do produto, a categoria ou o limite de preço."
 
     filtered = filtered.sort_values("price_brl").head(10)
+    promotions = load_promotions_df()
+    active_promotions = promotions[
+        promotions["is_active"]
+        & (promotions["discount_percent"] > 0)
+        & (promotions["discount_percent"] <= 100)
+    ]
+    promotions_by_product_id = {
+        int(product_id): group
+        for product_id, group in active_promotions.groupby("product_id")
+    }
+
     rows = []
     for _, product in filtered.iterrows():
         if product["status"] == "discontinued":
@@ -310,11 +380,29 @@ def search_products_in_catalog(user_message: str) -> str:
             availability = "Status: sem estoque no momento"
         else:
             availability = "Status: disponível para compra"
+        product_id = int(product["product_id"])
+        promotion_details = []
+        for _, promotion in promotions_by_product_id.get(
+            product_id, active_promotions.iloc[0:0]
+        ).iterrows():
+            discount_percent = float(promotion["discount_percent"])
+            discounted_price = round(
+                float(product["price_brl"]) * (1 - discount_percent / 100), 2
+            )
+            description = str(promotion["description"]).strip()
+            label = f"Promoção ativa: {discount_percent:g}%"
+            if description:
+                label += f" ({description})"
+            label += f" | Preço promocional: R$ {discounted_price:.2f}"
+            promotion_details.append(label)
+
         rows.append(
-            f"Produto encontrado: {product['name']} | "
+            f"Produto #{product_id} encontrado: {product['name']} | "
             f"Preço: R$ {float(product['price_brl']):.2f} | "
             f"Estoque: {int(product['stock_quantity'])} | "
-            f"{availability} | Descrição: {product['description']}"
+            f"{availability} | "
+            f"{' | '.join(promotion_details) + ' | ' if promotion_details else ''}"
+            f"Descrição: {product['description']}"
         )
     return "\n".join(rows)
 
@@ -461,10 +549,22 @@ def generate_chat_response(user_message: str) -> str:
             return "O serviço de IA não está disponível porque a chave GEMINI_API_KEY não foi configurada."
 
         response = gemini_client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.5-flash-lite',
             contents=full_prompt,
         )
         cleaned_text = response.text.replace("*", "").strip()
         return cleaned_text
     except Exception as e:
+        status_code = getattr(e, "code", None)
+        original_message = getattr(e, "message", None) or str(e)
+        if GEMINI_API_KEY:
+            original_message = str(original_message).replace(
+                GEMINI_API_KEY, "[REDACTED]"
+            )
+        logger.error(
+            "Gemini request failed (HTTP %s, %s): %s",
+            status_code if status_code is not None else "unknown",
+            type(e).__name__,
+            original_message,
+        )
         return safe_gemini_error_message(e)
